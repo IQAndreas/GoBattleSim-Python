@@ -80,17 +80,22 @@ class GameMaster:
         with open(file) as fd:
             gmdata = json.load(fd)
 
-        for template in gmdata["itemTemplates"]:
+        for template in gmdata["template"]:
             tid = template['templateId']
+            data = template['data']
+
+            # Instructions for Pokemon that change forms when sent to Pokemon Home (ignore these)
+            if re.fullmatch(r'V\d+_POKEMON_.+_(HOME_REVERSION|HOME_FORM_REVERSION)', tid):
+                continue
 
             # Match Pokemon
-            if re.fullmatch(r'V\d+_POKEMON_.+', tid):
+            elif re.fullmatch(r'V\d+_POKEMON_.+', tid):
                 pokemon = {}
-                pkmInfo = template["pokemonSettings"]
+                pkmInfo = data['pokemon']
                 pokemon['dex'] = int(tid.split('_')[0][1:])
                 pokemon['name'] = rm_underscores(tid, 'p')
                 pokemon['pokeType1'] = rm_underscores(
-                    pkmInfo['type'], 't')
+                    pkmInfo['type1'], 't')
                 pokemon['pokeType2'] = rm_underscores(
                     pkmInfo.get('type2', 'none'), 't')
                 pokemon['baseAtk'] = pkmInfo["stats"]["baseAttack"]
@@ -111,13 +116,13 @@ class GameMaster:
 
             # Match move, either Fast or Charged
             elif re.fullmatch(r'V\d+_MOVE_.+', tid):
-                moveInfo = template['moveSettings']
+                moveInfo = data['move']
                 move = {}
                 move['movetype'] = "fast" if tid.endswith(
                     '_FAST') else "charged"
                 move['name'] = rm_underscores(
-                    moveInfo["movementId"], move['movetype'])
-                move['pokeType'] = rm_underscores(moveInfo["pokemonType"], 't')
+                    moveInfo["uniqueId"], move['movetype'])
+                move['pokeType'] = rm_underscores(moveInfo["type"], 't')
                 move['power'] = int(moveInfo.get("power", 0))
                 move['duration'] = int(moveInfo["durationMs"])
                 move['dws'] = int(moveInfo["damageWindowStartMs"])
@@ -127,7 +132,7 @@ class GameMaster:
 
             # Match PvP Moves
             elif re.fullmatch(r'COMBAT_V\d+_MOVE_.+', tid):
-                moveInfo = template['combatMove']
+                moveInfo = data['combatMove']
                 move = {}
                 move['movetype'] = "fast" if tid.endswith(
                     '_FAST') else "charged"
@@ -150,7 +155,7 @@ class GameMaster:
 
             # Match CPM's
             elif tid == 'PLAYER_LEVEL_SETTINGS':
-                for cpm in template["playerLevel"]["cpMultiplier"]:
+                for cpm in data["playerLevel"]["cpMultiplier"]:
                     if self.CPMultipliers:
                         # Half level
                         self.CPMultipliers.append(
@@ -161,36 +166,36 @@ class GameMaster:
             elif re.fullmatch(r'POKEMON_TYPE_.+', tid):
                 pokemonType = rm_underscores(tid, 't')
                 self.TypeEffectiveness[pokemonType] = {}
-                for idx, mtp in enumerate(template["typeEffective"]["attackScalar"]):
+                for idx, mtp in enumerate(data["typeEffective"]["attackScalar"]):
                     self.TypeEffectiveness[pokemonType][PoketypeList[idx]] = mtp
 
             # Match PvE Battle settings
             elif tid == 'BATTLE_SETTINGS':
-                self.PvEBattleSettings = template["battleSettings"]
+                self.PvEBattleSettings = data["battleSettings"]
 
             # Match PvP Battle settings
             elif tid == 'COMBAT_SETTINGS':
-                for name, value in template["combatSettings"].items():
+                for name, value in data["combatSettings"].items():
                     self.PvPBattleSettings[name] = value
 
             # Match PvP Battle settings for buff stats
             elif tid == 'COMBAT_STAT_STAGE_SETTINGS':
-                for name, value in template["combatStatStageSettings"].items():
+                for name, value in data["combatStatStageSettings"].items():
                     self.PvPBattleSettings[name] = value
 
             # Match weather settings
             elif re.fullmatch(r'WEATHER_AFFINITY_.+', tid):
-                wname = template["weatherAffinities"]["weatherCondition"]
+                wname = data["weatherAffinities"]["weatherCondition"]
                 if wname == 'OVERCAST':
                     wname = 'CLOUDY'
                 self.WeatherSettings[wname] = [rm_underscores(
-                    s, 't') for s in template["weatherAffinities"]["pokemonType"]]
+                    s, 't') for s in data["weatherAffinities"]["pokemonType"]]
             elif tid == 'WEATHER_BONUS_SETTINGS':
-                self.PvEBattleSettings['weatherAttackBonusMultiplier'] = template["weatherBonusSettings"]["attackBonusMultiplier"]
+                self.PvEBattleSettings['weatherAttackBonusMultiplier'] = data["weatherBonusSettings"]["attackBonusMultiplier"]
 
             # Match friend settings
             elif re.fullmatch(r'FRIENDSHIP_LEVEL_\d+', tid):
-                multiplier = template["friendshipMilestoneSettings"]["attackBonusPercentage"]
+                multiplier = data["friendshipMilestoneSettings"]["attackBonusPercentage"]
                 self.FriendAttackBonusMultipliers.append(
                     {"name": tid, "multiplier": multiplier})
 
